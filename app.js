@@ -318,13 +318,45 @@ $('menuBtn').onclick = () => {
   openSheet('menuSheet');
 };
 
-$('exportBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+const native = () => (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? window.Capacitor.Plugins : null;
+
+function downloadInBrowser(name, json) {
+  const blob = new Blob([json], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'framework-decks-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* In the Android app a blob download does nothing, so write a real file and
+   hand it to the system share sheet instead. */
+async function exportDecks() {
+  const json = JSON.stringify(state, null, 2);
+  const name = 'framework-decks-' + new Date().toISOString().slice(0, 10) + '.json';
+  const plugins = native();
+  if (plugins && plugins.Filesystem && plugins.Share) {
+    try {
+      const file = await plugins.Filesystem.writeFile({
+        path: name, data: json, directory: 'CACHE', encoding: 'utf8'
+      });
+      await plugins.Share.share({
+        title: 'Framework decks backup',
+        text: 'Backup of your decks',
+        url: file.uri,
+        dialogTitle: 'Save your decks'
+      });
+      return;
+    } catch (e) {
+      if (String(e && e.message).toLowerCase().includes('cancel')) return;
+      toast('Share failed, trying a plain download');
+    }
+  }
+  downloadInBrowser(name, json);
+}
+
+$('exportBtn').onclick = () => {
+  exportDecks();
   closeSheet();
 };
 
@@ -471,6 +503,6 @@ if (!state.decks.length) {
 history.replaceState({ ...view }, '');
 render();
 
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !native()) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }

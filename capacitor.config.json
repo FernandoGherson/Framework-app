@@ -1,0 +1,11 @@
+{
+  "appId": "com.fernandogherson.frameworkdeck",
+  "appName": "Framework Deck",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#0f1117"
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

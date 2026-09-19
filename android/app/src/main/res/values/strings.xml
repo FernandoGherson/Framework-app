@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Framework Deck</string>
+    <string name="title_activity_main">Framework Deck</string>
+    <string name="package_name">com.fernandogherson.frameworkdeck</string>
+    <string name="custom_url_scheme">com.fernandogherson.frameworkdeck</string>
+</resources>
