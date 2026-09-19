@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1117">
+<meta name="description" content="Decks of frameworks for the problems you keep hitting. Flip through them one at a time or pull a random one.">
+<title>Framework Deck</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Frameworks">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="icon-btn" id="backBtn" hidden aria-label="Back">&#8592;</button>
+  <h1 id="title">Decks</h1>
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">&#8942;</button>
+</header>
+
+<!-- ============ DECK LIST ============ -->
+<main class="view" id="view-decks">
+  <ul class="deck-list" id="deckList"></ul>
+  <p class="empty" id="decksEmpty" hidden>No decks yet.<br>Add one for a problem you keep running into.</p>
+  <button class="fab" id="addDeckBtn" aria-label="New deck">+</button>
+</main>
+
+<!-- ============ DECK DETAIL ============ -->
+<main class="view" id="view-deck" hidden>
+  <p class="deck-note" id="deckNote"></p>
+  <div class="row">
+    <button class="btn primary big" id="studyBtn">Study deck</button>
+    <button class="btn" id="studyRandomBtn">Random card</button>
+  </div>
+  <div class="section-head">
+    <h2>Cards <span class="count" id="cardCount"></span></h2>
+    <button class="link-btn" id="editDeckBtn">Edit deck</button>
+  </div>
+  <ul class="card-list" id="cardList"></ul>
+  <p class="empty" id="cardsEmpty" hidden>No cards in this deck yet.</p>
+  <button class="fab" id="addCardBtn" aria-label="New card">+</button>
+</main>
+
+<!-- ============ STUDY ============ -->
+<main class="view study" id="view-study" hidden>
+  <div class="study-head">
+    <span class="pill" id="studyProgress">1 / 1</span>
+    <div class="seg" role="group" aria-label="Order">
+      <button class="seg-btn is-on" id="modeOrder" data-mode="order">In order</button>
+      <button class="seg-btn" id="modeRandom" data-mode="random">Random</button>
+    </div>
+  </div>
+
+  <div class="flip" id="flip" tabindex="0" role="button" aria-label="Flip card">
+    <div class="flip-inner">
+      <div class="face front">
+        <span class="face-tag">Framework</span>
+        <p class="face-text" id="cardFront"></p>
+        <span class="hint">tap to flip</span>
+      </div>
+      <div class="face back">
+        <span class="face-tag">How to use it</span>
+        <p class="face-text" id="cardBack"></p>
+        <span class="hint">tap to flip back</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="study-bar">
+    <button class="btn" id="prevBtn" aria-label="Previous card">&#8592; Prev</button>
+    <button class="btn" id="shuffleBtn" aria-label="Random card">&#127922; Random</button>
+    <button class="btn primary" id="nextBtn" aria-label="Next card">Next &#8594;</button>
+  </div>
+  <button class="link-btn centered" id="editThisCardBtn">Edit this card</button>
+</main>
+
+<!-- ============ SHEETS / DIALOGS ============ -->
+<div class="sheet-wrap" id="sheetWrap" hidden>
+  <div class="backdrop" data-close></div>
+
+  <form class="sheet" id="deckForm" hidden>
+    <h2 id="deckFormTitle">New deck</h2>
+    <label>Problem / deck name
+      <input id="deckName" required maxlength="120" placeholder="Can't start a task" autocomplete="off">
+    </label>
+    <label>Note <span class="opt">(optional)</span>
+      <textarea id="deckNoteInput" rows="2" maxlength="400" placeholder="When I stare at the task and nothing happens."></textarea>
+    </label>
+    <div class="sheet-bar">
+      <button type="button" class="btn danger" id="deleteDeckBtn" hidden>Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+
+  <form class="sheet" id="cardForm" hidden>
+    <h2 id="cardFormTitle">New card</h2>
+    <label>Front - the framework
+      <input id="cardFrontInput" required maxlength="160" placeholder="Two-minute version" autocomplete="off">
+    </label>
+    <label>Back - how to run it
+      <textarea id="cardBackInput" rows="6" maxlength="2000" placeholder="Shrink the task until it takes two minutes. Do that version only. Stopping after it is allowed."></textarea>
+    </label>
+    <div class="sheet-bar">
+      <button type="button" class="btn danger" id="deleteCardBtn" hidden>Delete</button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Cancel</button>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+
+  <div class="sheet" id="menuSheet" hidden>
+    <h2>Menu</h2>
+    <button class="menu-item" id="exportBtn">Export all decks (.json)</button>
+    <button class="menu-item" id="importBtn">Import decks from file</button>
+    <button class="menu-item" id="seedBtn">Add the starter decks</button>
+    <button class="menu-item danger" id="wipeBtn">Erase everything</button>
+    <p class="fine" id="storageNote"></p>
+    <div class="sheet-bar"><span class="spacer"></span><button class="btn" data-close>Close</button></div>
+  </div>
+</div>
+
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<div class="toast" id="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
