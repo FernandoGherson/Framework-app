@@ -1,0 +1,9 @@
+node_modules/
+www/
+.DS_Store
+*.log
+
+# Never commit a decrypted signing key. Only release.jks.enc belongs in git.
+*.jks
+*.keystore
+!android/keystore/release.jks.enc

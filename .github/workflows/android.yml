@@ -1,0 +1,133 @@
+name: Build Android app
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+  # Dry run on PRs that touch the app, so a broken Android build is caught
+  # before it reaches main. PR runs never publish a release.
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'scripts/**'
+      - 'index.html'
+      - 'app.js'
+      - 'styles.css'
+      - 'manifest.webmanifest'
+      - 'sw.js'
+      - 'icons/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.json'
+      - '.github/workflows/android.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Work out the version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            NAME="${GITHUB_REF#refs/tags/v}"
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            NAME="1.0.${GITHUB_RUN_NUMBER}"
+            TAG="android-latest"
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+
+      - name: Decrypt the signing key
+        id: key
+        env:
+          PASSPHRASE: ${{ secrets.KEYSTORE_PASSPHRASE }}
+        run: |
+          if [ -z "$PASSPHRASE" ]; then
+            echo "signed=no" >> "$GITHUB_OUTPUT"
+            echo "::warning::KEYSTORE_PASSPHRASE secret is not set. Building unsigned (the APK will not be installable and no release will be published)."
+            exit 0
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -in android/keystore/release.jks.enc \
+            -out "$RUNNER_TEMP/release.jks" -pass env:PASSPHRASE
+          echo "signed=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Build APK and AAB
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ steps.key.outputs.signed == 'yes' && format('{0}/release.jks', runner.temp) || '' }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSPHRASE }}
+          ANDROID_KEY_ALIAS: framework-deck
+        run: |
+          chmod +x android/gradlew
+          cd android
+          ./gradlew --no-daemon assembleRelease bundleRelease \
+            -PappVersionCode=${{ steps.ver.outputs.code }} \
+            -PappVersionName=${{ steps.ver.outputs.name }}
+
+      - name: Collect the files
+        run: |
+          mkdir -p dist
+          APK=$(ls android/app/build/outputs/apk/release/*.apk | head -1)
+          AAB=$(ls android/app/build/outputs/bundle/release/*.aab | head -1)
+          cp "$APK" "dist/FrameworkDeck-${{ steps.ver.outputs.name }}.apk"
+          cp "$AAB" "dist/FrameworkDeck-${{ steps.ver.outputs.name }}.aab"
+          ls -lh dist
+
+      - name: Check the APK carries the release signature
+        if: steps.key.outputs.signed == 'yes'
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          "$BT/apksigner" verify --print-certs "dist/FrameworkDeck-${{ steps.ver.outputs.name }}.apk" | tee certs.txt
+          grep -q 'Framework Deck' certs.txt || { echo "::error::APK is not signed with the release key"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FrameworkDeck-${{ steps.ver.outputs.name }}
+          path: dist/*
+          retention-days: 90
+
+      - name: Publish the release
+        if: steps.key.outputs.signed == 'yes' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          NOTES="Android build ${{ steps.ver.outputs.name }} (version code ${{ steps.ver.outputs.code }}).
+
+          **Install:** open the .apk link below on your Android phone and tap it. Android asks permission to install from this source; that prompt is normal for apps from outside the Play Store.
+
+          **Updating:** install straight over the old version. Do NOT uninstall first, that deletes your decks. Every build here is signed with the same key, so an update keeps your data.
+
+          The .aab file is for a future Google Play listing and cannot be installed directly."
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" dist/* \
+            --title "Framework Deck ${{ steps.ver.outputs.name }}" \
+            --notes "$NOTES"
+          gh release view "$TAG" --json url --jq '"Release: " + .url'
+
+      - name: Fail if a real build was requested without the signing key
+        if: steps.key.outputs.signed != 'yes' && github.event_name != 'pull_request'
+        run: |
+          echo "::error::No installable APK was produced. Add the repository secret KEYSTORE_PASSPHRASE (Settings > Secrets and variables > Actions), then re-run this workflow."
+          exit 1
